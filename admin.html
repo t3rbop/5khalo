@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>لوحة الطلبات — مطعم خالو</title>
+<meta name="theme-color" content="#2b2b2b">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,sans-serif;-webkit-tap-highlight-color:transparent}
+  body{background:#eef0f3;color:#2b2b2b;min-height:100vh}
+
+  /* الدخول */
+  #login{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:8%;background:linear-gradient(160deg,#d63232,#8f1d1d)}
+  #login .box{background:#fff;border-radius:24px;padding:40px 30px;width:100%;max-width:380px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+  #login .logo{font-size:3.5rem}
+  #login h1{color:#d63232;margin:10px 0 25px;font-size:1.4rem}
+  #login input{width:100%;padding:14px;border:2px solid #eee;border-radius:12px;font-size:1rem;margin-bottom:12px;text-align:center;font-family:inherit}
+  #login input:focus{outline:none;border-color:#d63232}
+  #login button{width:100%;padding:15px;border:none;border-radius:12px;background:#d63232;color:#fff;font-weight:bold;font-size:1.05rem;cursor:pointer;font-family:inherit}
+  #login .err{color:#d63232;font-size:.85rem;margin-top:10px;min-height:20px}
+
+  /* الشريط العلوي */
+  .top{position:sticky;top:0;background:#2b2b2b;color:#fff;padding:14px 4%;display:flex;align-items:center;gap:10px;z-index:50}
+  .top h1{font-size:1.1rem;flex:1}
+  .net{font-size:.7rem;background:#ff9800;padding:3px 10px;border-radius:12px}
+  .net.on{background:#2ecc71}
+
+  /* الإحصائيات */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:15px 4%}
+  .stat{background:#fff;border-radius:14px;padding:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+  .stat .n{font-size:1.5rem;font-weight:800;color:#d63232}
+  .stat .l{font-size:.72rem;color:#9a9a9a;margin-top:3px}
+
+  /* التبويبات */
+  .tabs{display:flex;gap:8px;overflow-x:auto;padding:0 4% 12px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{white-space:nowrap;padding:9px 16px;border-radius:22px;background:#fff;font-weight:600;font-size:.85rem;cursor:pointer;border:2px solid #e3e3e3}
+  .tab.active{background:#d63232;color:#fff;border-color:#d63232}
+  .tab .badge{background:#2b2b2b;color:#fff;font-size:.7rem;border-radius:10px;padding:1px 7px;margin-right:5px}
+  .tab.active .badge{background:#fff;color:#d63232}
+
+  /* بطاقات الطلبات */
+  .orders{padding:0 4% 100px;display:grid;gap:12px}
+  .order{background:#fff;border-radius:16px;box-shadow:0 1px 5px rgba(0,0,0,.07);overflow:hidden;border-right:5px solid #999}
+  .order.s0{border-right-color:#d63232}
+  .order.s1{border-right-color:#ff9800}
+  .order.s2{border-right-color:#2196f3}
+  .order.s3{border-right-color:#2ecc71}
+  .order.s4{border-right-color:#555;background:#fafafa}
+  .order.s4 .st{background:#555;color:#fff}
+  .o-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer}
+  .o-head .oid{font-weight:800;font-size:.95rem}
+  .o-head .time{font-size:.72rem;color:#9a9a9a;margin-top:2px}
+  .o-head .total{font-weight:800;color:#d63232}
+  .st{font-size:.72rem;font-weight:bold;padding:4px 11px;border-radius:12px}
+  .st0{background:#fdeaea;color:#d63232}.st1{background:#fff4e0;color:#e08600}
+  .st2{background:#e3f0fd;color:#1976d2}.st3{background:#e5f9ec;color:#27ae60}
+  .o-body{display:none;border-top:1px dashed #eee;padding:14px 16px}
+  .order.open .o-body{display:block}
+  .o-line{display:flex;justify-content:space-between;padding:5px 0;font-size:.9rem}
+  .o-line .lo{color:#9a9a9a;font-size:.78rem}
+  .o-cust{background:#f8f8f8;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:.85rem;line-height:2}
+  .o-note{background:#fffbe8;border-right:3px solid #f4b942;border-radius:8px;padding:8px 12px;font-size:.82rem;margin-bottom:10px}
+  .o-actions{display:flex;gap:8px;margin-top:10px}
+  .o-actions button{flex:1;padding:11px;border:none;border-radius:10px;font-weight:bold;cursor:pointer;font-family:inherit;font-size:.85rem}
+  .next{background:#d63232;color:#fff}
+  .call{background:#2b2b2b;color:#fff}
+  .wa{background:#25d366;color:#fff}
+  .empty{text-align:center;color:#9a9a9a;padding:50px 8%}
+  .empty .ic{font-size:3rem;margin-bottom:12px}
+
+  /* تبويبات العرض الرئيسية */
+  .viewtabs{display:flex;gap:8px;padding:12px 4% 0}
+  .viewtabs button{flex:1;padding:11px;border:none;border-radius:12px;font-weight:bold;font-family:inherit;font-size:.95rem;cursor:pointer;background:#fff;border:2px solid #e3e3e3;color:#2b2b2b}
+  .viewtabs button.active{background:#d63232;color:#fff;border-color:#d63232}
+
+  /* إدارة القائمة */
+  #view-menu{padding-bottom:100px}
+  .m-form{background:#fff;margin:15px 4%;border-radius:16px;padding:18px;box-shadow:0 1px 5px rgba(0,0,0,.07)}
+  .m-form h3{color:#d63232;margin-bottom:14px}
+  .m-form .f{margin-bottom:12px}
+  .m-form label{display:block;font-weight:600;font-size:.85rem;margin-bottom:5px;color:#444}
+  .m-form input,.m-form select,.m-form textarea{width:100%;padding:12px;border:2px solid #eee;border-radius:12px;font-family:inherit;font-size:.95rem}
+  .m-form input:focus,.m-form select:focus,.m-form textarea:focus{outline:none;border-color:#d63232}
+  .checks{display:flex;flex-wrap:wrap;gap:8px}
+  .checks label{border:2px solid #eee;border-radius:20px;padding:8px 14px;font-size:.85rem;cursor:pointer;font-weight:600}
+  .checks input{display:none}
+  .checks label.sel{border-color:#d63232;background:#fdf4f4;color:#d63232}
+  .m-form .add-btn{width:100%;padding:15px;border:none;border-radius:12px;background:#d63232;color:#fff;font-weight:bold;font-size:1.05rem;cursor:pointer;font-family:inherit;margin-top:6px}
+  .img-prev{width:100%;max-height:180px;object-fit:cover;border-radius:12px;margin-top:8px;display:none}
+  .meal{background:#fff;margin:10px 4% 0;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+  .meal .mi{width:56px;height:56px;border-radius:12px;background:#fdf1f1;display:flex;align-items:center;justify-content:center;font-size:1.8rem;overflow:hidden;flex-shrink:0}
+  .meal .mi img{width:100%;height:100%;object-fit:cover}
+  .meal .minfo{flex:1;min-width:0}
+  .meal .mname{font-weight:700}
+  .meal .mp{color:#d63232;font-weight:800;font-size:.85rem;margin-top:2px}
+  .meal button{background:#fdeaea;border:none;color:#d63232;padding:9px 12px;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:bold}
+</style>
+</head>
+<body>
+
+<!-- صفحة الدخول -->
+<div id="login">
+  <div class="box">
+    <div class="logo">🔥</div>
+    <h1>مطعم خالو — لوحة الطلبات</h1>
+    <input type="password" id="pin" placeholder="رمز الدخول (PIN)" inputmode="numeric">
+    <button onclick="tryLogin()">دخول</button>
+    <div class="err" id="err"></div>
+    <p style="color:#bbb;font-size:.7rem;margin-top:15px">الرمز الافتراضي: 1234</p>
+  </div>
+</div>
+
+<!-- اللوحة -->
+<div id="panel" style="display:none">
+  <div class="top">
+    <h1>🔥 طلبات خالو</h1>
+    <button onclick="newDay()" title="بدء يوم جديد" style="background:#d63232;border:none;color:#fff;padding:8px 14px;border-radius:20px;font-weight:bold;font-size:.8rem;cursor:pointer;font-family:inherit">🔄 يوم جديد</button>
+    <button onclick="logout()" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer">⎋</button>
+  </div>
+  <div class="viewtabs">
+    <button id="vt-orders" class="active" onclick="setView('orders')">📋 الطلبات</button>
+    <button id="vt-menu" onclick="setView('menu')">🍔 إدارة القائمة</button>
+  </div>
+
+  <div id="view-orders">
+  <div class="stats">
+    <div class="stat"><div class="n" id="st-count">0</div><div class="l">طلب اليوم</div></div>
+    <div class="stat"><div class="n" id="st-total">0</div><div class="l">💰 إيراد اليوم</div></div>
+    <div class="stat"><div class="n" id="st-new">0</div><div class="l">بانتظار المعالجة</div></div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="orders" id="orders"></div>
+  </div>
+
+  <!-- ✅ إدارة القائمة: الأدمن يضيف وجبة بصورة وسعر وخيارات، وتُجلب من Firebase للزبائن -->
+  <div id="view-menu" style="display:none">
+    <div class="m-form">
+      <h3>➕ إضافة وجبة جديدة</h3>
+      <div class="f"><label>اسم الوجبة *</label><input id="m-name" placeholder="مثال: برغر تشيز"></div>
+      <div class="f"><label>السعر (د.ع) *</label><input id="m-price" type="number" inputmode="numeric" placeholder="مثال: 5000"></div>
+      <div class="f"><label>الوصف</label><input id="m-desc" placeholder="وصف قصير شهي"></div>
+      <div class="f"><label>التصنيف *</label>
+        <select id="m-cat">
+          <option value="fast">🍔 وجبات سريعة</option>
+          <option value="grill">🔥 مشاوي وشرقيات</option>
+        </select></div>
+      <div class="f"><label>إيموجي (إن لم توجد صورة)</label><input id="m-icon" placeholder="🍔" maxlength="8"></div>
+      <div class="f"><label>صورة الوجبة (من جهازك)</label>
+        <input type="file" id="m-file" accept="image/*" style="padding:9px">
+        <input type="url" id="m-img" placeholder="أو الصق رابط صورة https://…" style="margin-top:8px">
+        <img class="img-prev" id="m-prev">
+      </div>
+      <div class="f"><label>الخيارات المتاحة للزبون</label>
+        <div class="checks" id="m-opts">
+          <label data-o="size"><input type="checkbox" value="size">📏 أحجام</label>
+          <label data-o="drink"><input type="checkbox" value="drink">🥤 مشروب</label>
+          <label data-o="fries"><input type="checkbox" value="fries">🧀 جبن</label>
+          <label data-o="hot"><input type="checkbox" value="hot">🔥 الأكثر طلباً</label>
+        </div></div>
+      <button class="add-btn" onclick="addMeal()">✅ نشر الوجبة للزبائن</button>
+    </div>
+    <h3 style="padding:15px 4% 5px;font-size:1.05rem">🍽️ الوجبات الحالية</h3>
+    <div id="meals"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+const PIN = "1234"; // غيّره قبل البيع!
+const STATUSES = ["جديد","قيد التحضير","جاهز","تم التسليم/التوصيل"];
+let currentTab = "الكل";
+let lastCount = 0;
+
+/* نظام اليوم الحالي */
+function isToday(ts){ return new Date(ts||0).toDateString() === new Date().toDateString(); }
+function newDay(){
+  if (!confirm("📅 بدء يوم جديد؟\nسيتم تصفير الإيرادات وأرشفة كل الطلبات الحالية.")) return;
+  archiveAllOrders().then(()=> alert("✅ تم بدء يوم جديد!"));
+}
+
+function tryLogin(){
+  if (document.getElementById("pin").value === PIN){
+    sessionStorage.setItem("khalo_admin","1");
+    document.getElementById("login").style.display = "none";
+    document.getElementById("panel").style.display = "block";
+    start();
+  } else document.getElementById("err").textContent = "رمز غير صحيح ❌";
+}
+function logout(){ sessionStorage.removeItem("khalo_admin"); location.reload(); }
+if (sessionStorage.getItem("khalo_admin")) { document.getElementById("login").style.display="none"; document.getElementById("panel").style.display="block"; }
+document.getElementById("pin")?.addEventListener("keydown", e => e.key==="Enter" && tryLogin());
+
+const beep = () => { try { const a=new AudioContext(); const o=a.createOscillator(); const g=a.createGain();
+  o.connect(g); g.connect(a.destination); o.frequency.value=880; g.gain.value=.3; o.start();
+  setTimeout(()=>{o.frequency.value=1170},150); setTimeout(()=>o.stop(),350); } catch(e){} };
+
+function renderTabs(counts){
+  const tabs = ["الكل", ...STATUSES, "مرفوض"];
+  document.getElementById("tabs").innerHTML = tabs.map(t => {
+    const c = t==="الكل" ? counts.total : (counts[t]||0);
+    return `<div class="tab ${t===currentTab?'active':''}" onclick="setTab('${t}')">${t}${c?`<span class="badge">${c}</span>`:''}</div>`;
+  }).join("");
+}
+function setTab(t){ currentTab=t; renderOrders(window._orders||[]); }
+
+function renderOrders(allOrders){
+  /* ✅ عرض طلبات اليوم غير المؤرشفة فقط */
+  const orders = allOrders.filter(o => !o.archived && isToday(o.ts));
+  window._orders = orders;
+
+  const active = orders.filter(o => o.status !== "مرفوض");
+  const refused = orders.filter(o => o.status === "مرفوض");
+
+  const counts = { total: orders.length };
+  STATUSES.forEach(s => counts[s] = orders.filter(o=>o.status===s).length);
+  counts["مرفوض"] = refused.length;
+  renderTabs(counts);
+
+  document.getElementById("st-count").textContent = active.length;
+  /* 💰 الإيراد: طلبات اليوم فقط، بدون المرفوضة */
+  document.getElementById("st-total").textContent = active.reduce((s,o)=>s+(o.total||0),0).toLocaleString();
+  document.getElementById("st-new").textContent = counts["جديد"] || 0;
+
+  if (orders.length > lastCount && lastCount > 0){ beep(); navigator.vibrate?.(300); }
+  lastCount = orders.length;
+
+  const list = currentTab==="الكل" ? active :
+               currentTab==="مرفوض" ? refused :
+               active.filter(o=>o.status===currentTab);
+  let html = "";
+  if (!list.length)
+    html = `<div class="empty"><div class="ic">📭</div><p>لا توجد طلبات هنا</p></div>`;
+  else
+    html = list.map(cardHtml).join("");
+
+  /* 🚫 قسم خاص للطلبات المرفوضة */
+  if (refused.length && currentTab==="الكل"){
+    html += `<div style="margin-top:20px;color:#d63232;font-weight:800;font-size:1rem">🚫 طلبات مرفوضة (${refused.length}) — لا تُحسب في الإيراد</div>`;
+    html += refused.map(cardHtml).join("");
+  }
+  document.getElementById("orders").innerHTML = html;
+}
+
+function cardHtml(o){
+  const si = o.status === "مرفوض" ? 4 : STATUSES.indexOf(o.status);
+  return `<div class="order s${si}" id="o-${o.id}">
+    <div class="o-head" onclick="document.getElementById('o-${o.id}').classList.toggle('open')">
+      <div><div class="oid">${o.id}</div><div class="time">🕐 ${o.time}</div></div>
+      <div style="text-align:left"><div class="total" style="${si===4?'color:#999;text-decoration:line-through':''}">${(o.total||0).toLocaleString()} د.ع</div>
+      <span class="st st${si}">${si===4?"مرفوض 🚫":o.status}</span></div>
+    </div>
+    <div class="o-body">
+      ${(o.items||[]).map(it=>`<div class="o-line"><span>${it.icon||""} ${it.name} × ${it.qty}</span><span>${(it.unit*it.qty).toLocaleString()}</span></div>
+        ${it.opts?.length?`<div class="o-line lo">↳ ${it.opts.join(" • ")}</div>`:""}
+        ${it.note?`<div class="o-line lo">📝 ${it.note}</div>`:""}`).join("")}
+      ${o.delivery?`<div class="o-line lo">🛵 توصيل: ${(+o.delivery).toLocaleString()}</div>`:""}
+      <div class="o-cust">
+        👤 <b>${o.customer?.name||""}</b> • ${o.type}<br>
+        📞 <a href="tel:${o.customer?.phone}" style="color:#1976d2">${o.customer?.phone||""}</a><br>
+        ${o.customer?.address ? "📍 " + o.customer.address + "<br>" : ""}
+        💳 ${o.pay||"كاش"}
+      </div>
+      ${o.note ? `<div class="o-note">📌 ${o.note}</div>` : ""}
+      ${o.rejectReason ? `<div class="o-note" style="background:#fdeaea;border-right-color:#d63232">🚫 سبب الرفض: ${o.rejectReason}</div>` : ""}
+      <div class="o-actions">
+        ${si >= 0 && si < 3 ? `<button class="next" onclick="advance('${o.id}',${si})">التالي: ${STATUSES[si+1]} →</button>
+        <button onclick="deny('${o.id}')" style="background:#555;color:#fff;flex:0 0 90px">رفض ❌</button>` : ""}
+        ${si === 4 ? `<button class="next" style="background:#2196f3" onclick="restore('${o.id}')">↩️ استرجاع</button>` : ""}
+        ${si === 3 ? `<button class="next" style="background:#2ecc71">مكتمل ✅</button>` : ""}
+        <a class="call" style="text-align:center;text-decoration:none;padding:11px;border-radius:10px;flex:1;font-size:.85rem;font-weight:bold" href="tel:${o.customer?.phone}">اتصال</a>
+        <a class="wa" style="text-align:center;text-decoration:none;padding:11px;border-radius:10px;flex:1;font-size:.85rem;font-weight:bold" href="https://wa.me/${(o.customer?.phone||"").replace(/\D/g,"")}" target="_blank">واتساب</a>
+      </div>
+      <div class="o-actions" style="margin-top:8px">
+        <button onclick="delOrder('${o.id}')" style="background:#fdeaea;color:#d63232">🗑️ حذف الطلب نهائياً</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function advance(id, si){ updateOrderStatus(id, STATUSES[si+1]); }
+function deny(id){
+  const reason = prompt("🚫 سبب رفض الطلب؟\n(سيظهر هذا السبب للزبون صاحب الطلب فقط في صفحة التتبع)", "");
+  if (reason === null) return;
+  if (confirm("تأكيد رفض الطلب؟ سيظهر للزبون «تم رفض طلبك» مع السبب، ولن يُحسب في الإيراد."))
+    updateOrderStatus(id, "مرفوض", reason.trim() || "لم يُذكر سبب");
+}
+function restore(id){ updateOrderStatus(id, "جديد"); }
+function delOrder(id){
+  if (confirm("🗑️ حذف الطلب نهائياً؟ لا يمكن التراجع!")) deleteOrder(id);
+}
+
+/* ===== تبديل العرض: الطلبات / إدارة القائمة ===== */
+function setView(v){
+  document.getElementById("view-orders").style.display = v==="orders" ? "block" : "none";
+  document.getElementById("view-menu").style.display   = v==="menu"   ? "block" : "none";
+  document.getElementById("vt-orders").classList.toggle("active", v==="orders");
+  document.getElementById("vt-menu").classList.toggle("active",   v==="menu");
+}
+
+/* ===== إدارة القائمة ===== */
+let _imgData = "";
+const g = id => document.getElementById(id);
+
+document.getElementById("m-opts").querySelectorAll("label").forEach(l => {
+  l.onclick = () => { l.classList.toggle("sel"); l.querySelector("input").checked = l.classList.contains("sel"); };
+});
+
+/* قراءة صورة من الجهاز وتصغيرها (حتى تبقى خفيفة في Firebase) */
+document.getElementById("m-file").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = ev => {
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement("canvas");
+      const sc = Math.min(1, 400 / Math.max(im.width, im.height));
+      c.width = im.width * sc; c.height = im.height * sc;
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+      _imgData = c.toDataURL("image/jpeg", .8);
+      document.getElementById("m-img").value = "";
+      const p = g("m-prev"); p.src = _imgData; p.style.display = "block";
+    };
+    im.src = ev.target.result;
+  };
+  rd.readAsDataURL(f);
+});
+document.getElementById("m-img").addEventListener("input", e => {
+  _imgData = "";
+  const p = g("m-prev");
+  if (e.target.value.trim()){ p.src = e.target.value.trim(); p.style.display = "block"; }
+  else p.style.display = "none";
+});
+
+function addMeal(){
+  const name = g("m-name").value.trim();
+  const price = parseInt(g("m-price").value, 10);
+  if (!name || isNaN(price) || price <= 0){ alert("⚠️ أدخل اسم الوجبة وسعراً صحيحاً"); return; }
+  const opts = ["size","drink","fries"].filter(o => document.querySelector(`#m-opts input[value="${o}"]`).checked);
+  const hot  = document.querySelector('#m-opts input[value="hot"]').checked;
+  saveMeal({
+    name, price,
+    desc: g("m-desc").value.trim(),
+    cat: g("m-cat").value,
+    icon: g("m-icon").value.trim() || "🍽️",
+    img: _imgData || g("m-img").value.trim() || "",
+    hot,
+    options: opts
+  }).then(() => {
+    ["m-name","m-price","m-desc","m-icon","m-img"].forEach(i => g(i).value = "");
+    g("m-file").value = ""; g("m-prev").style.display = "none"; _imgData = "";
+    document.getElementById("m-opts").querySelectorAll("label").forEach(l => { l.classList.remove("sel"); l.querySelector("input").checked = false; });
+    alert("✅ تم نشر الوجبة! ستظهر فوراً عند الزبائن.");
+  });
+}
+
+function renderMeals(menu){
+  const box = g("meals");
+  if (!menu.length){
+    box.innerHTML = `<div class="empty"><div class="ic">🍽️</div><p>القائمة فارغة — أضف أول وجبة الآن!</p></div>`;
+    return;
+  }
+  box.innerHTML = menu.map(m => `
+    <div class="meal">
+      <div class="mi">${m.img ? `<img src="${m.img}">` : (m.icon||"🍽️")}</div>
+      <div class="minfo"><div class="mname">${m.name} ${m.hot?"🔥":""}</div>
+      <div class="mp">${(m.price||0).toLocaleString()} د.ع • ${m.cat==="grill"?"🔥 مشاوي":"🍔 سريعة"}</div></div>
+      <button onclick="if(confirm('حذف ${m.name} من القائمة؟'))deleteMeal('${m.id}')">🗑️</button>
+    </div>`).join("");
+}
+
+function start(){ onOrders(renderOrders); onMenu(renderMeals); }
+if (sessionStorage.getItem("khalo_admin")) start();
+</script>
+</body>
+</html>

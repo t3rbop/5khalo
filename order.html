@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>اطلب الآن — مطعم خالو</title>
+<meta name="theme-color" content="#d63232">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,sans-serif;-webkit-tap-highlight-color:transparent}
+  body{background:#f7f5f4;color:#2b2b2b;min-height:100vh;padding-bottom:110px}
+  .top{position:sticky;top:0;background:#d63232;color:#fff;padding:14px 5%;display:flex;align-items:center;gap:12px;z-index:50;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+  .top a{color:#fff;font-size:1.3rem;text-decoration:none}
+  .top h1{font-size:1.15rem;flex:1}
+  .net{font-size:.7rem;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:12px}
+  .net.on{background:#2ecc71}
+
+  /* التصنيفات */
+  .cats{display:flex;gap:10px;overflow-x:auto;padding:15px 5%;scrollbar-width:none}
+  .cats::-webkit-scrollbar{display:none}
+  .cat{white-space:nowrap;padding:9px 18px;border-radius:25px;background:#fff;border:1px solid #eee;font-weight:600;cursor:pointer;font-size:.9rem;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+  .cat.active{background:#d63232;color:#fff;border-color:#d63232}
+
+  /* قائمة الأصناف */
+  .list{padding:0 5%;display:grid;gap:12px}
+  .item{background:#fff;border-radius:16px;padding:14px;display:flex;gap:14px;align-items:center;cursor:pointer;border:1px solid #eee;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .item:active{transform:scale(.98)}
+  .item .icon{font-size:2.4rem;background:#fdf1f1;width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+  .item .icon img{width:100%;height:100%;object-fit:cover}
+  .detail .big-icon{overflow:hidden}
+  .detail .big-icon img{width:100%;max-height:220px;object-fit:cover;border-radius:14px}
+  .item .info{flex:1;min-width:0}
+  .item .name{font-weight:700;display:flex;align-items:center;gap:8px}
+  .hot{background:#fdeaea;color:#d63232;font-size:.65rem;padding:2px 8px;border-radius:10px;font-weight:bold}
+  .item .desc{color:#9a9a9a;font-size:.8rem;margin-top:3px}
+  .item .price{color:#d63232;font-weight:800;white-space:nowrap}
+  .item .icon img{width:100%;height:100%;object-fit:cover;border-radius:14px}
+  .detail .big-icon img{max-height:180px;max-width:100%;border-radius:16px}
+
+  /* صفحة الصنف */
+  .detail{padding:25px 5%}
+  .detail .big-icon{font-size:5rem;text-align:center;background:#fff;border-radius:24px;padding:35px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:20px}
+  .detail h2{font-size:1.5rem}
+  .detail .p-desc{color:#8a8a8a;margin:8px 0 20px;line-height:1.8}
+  .opt-group{background:#fff;border-radius:16px;padding:18px;margin-bottom:15px;border:1px solid #eee}
+  .opt-group h4{color:#d63232;margin-bottom:12px;font-size:1rem}
+  .opt{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border:2px solid #eee;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:.2s}
+  .opt:last-child{margin-bottom:0}
+  .opt.sel{border-color:#d63232;background:#fdf4f4;font-weight:700}
+  .opt .add{color:#d63232;font-size:.85rem;font-weight:bold}
+  .qty{display:flex;align-items:center;justify-content:center;gap:22px;margin:20px 0}
+  .qty button{width:48px;height:48px;border-radius:50%;border:none;background:#d63232;color:#fff;font-size:1.5rem;cursor:pointer}
+  .qty span{font-size:1.6rem;font-weight:800;min-width:40px;text-align:center}
+  textarea{width:100%;border:2px solid #eee;border-radius:12px;padding:12px;font-family:inherit;resize:none;height:80px}
+  textarea:focus{outline:none;border-color:#d63232}
+
+  /* السلة */
+  .cartbar{position:fixed;bottom:0;left:0;right:0;background:#d63232;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:16px 5%;cursor:pointer;font-weight:bold;font-size:1.05rem;box-shadow:0 -4px 15px rgba(0,0,0,.2);z-index:50}
+  .cartbar .total{font-size:.95rem}
+
+  /* السلة / إتمام الطلب */
+  .cart-page h2{padding:20px 5% 5px;font-size:1.4rem}
+  .cart-item{background:#fff;margin:12px 5% 0;border-radius:14px;padding:14px 16px;border:1px solid #eee;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .cart-item .cn{font-weight:700}
+  .cart-item .co{color:#9a9a9a;font-size:.8rem;margin-top:4px;line-height:1.7}
+  .cart-item .cp{color:#d63232;font-weight:800;white-space:nowrap}
+  .del{background:none;border:none;color:#d63232;cursor:pointer;font-size:1.1rem}
+  .form{padding:15px 5%}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-weight:600;margin-bottom:6px;font-size:.9rem}
+  .field input,.field select{width:100%;padding:13px 14px;border:2px solid #eee;border-radius:12px;font-family:inherit;font-size:1rem;background:#fff}
+  .field input:focus,.field select:focus{outline:none;border-color:#d63232}
+  .pay-opts{display:flex;gap:10px}
+  .pay-opts label{flex:1;border:2px solid #eee;border-radius:12px;padding:13px;text-align:center;cursor:pointer;font-weight:600}
+  .pay-opts input{display:none}
+  .pay-opts label.sel{border-color:#d63232;background:#fdf4f4;color:#d63232}
+  .totals{background:#fff;margin:15px 5%;border-radius:16px;padding:18px;border:1px solid #eee}
+  .totals .row{display:flex;justify-content:space-between;padding:7px 0;color:#6b6b6b}
+  .totals .grand{border-top:2px dashed #eee;margin-top:8px;padding-top:12px;font-weight:800;color:#2b2b2b;font-size:1.15rem}
+  .totals .grand span:last-child{color:#d63232}
+  .submit{width:90%;margin:10px 5% 20px;padding:16px;border:none;border-radius:14px;background:#d63232;color:#fff;font-size:1.1rem;font-weight:bold;cursor:pointer;font-family:inherit}
+  .submit:active{transform:scale(.98)}
+
+  /* نجاح الطلب */
+  .success{text-align:center;padding:60px 8%}
+  .success .ok{font-size:5rem;animation:pop .5s}
+  @keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+  .success h2{color:#d63232;margin:15px 0}
+  .success .oid{background:#fff;border:2px dashed #d63232;border-radius:14px;padding:14px;font-weight:800;margin:15px auto;max-width:320px;letter-spacing:1px}
+  .track-btn{display:inline-block;margin-top:10px;background:#2b2b2b;color:#fff;padding:13px 34px;border-radius:30px;text-decoration:none;font-weight:bold}
+  .empty{text-align:center;color:#9a9a9a;padding:60px 8%}
+  .empty .ic{font-size:3.5rem;margin-bottom:15px}
+
+  /* التتبع */
+  .steps{max-width:420px;margin:25px auto;padding:0 8%}
+  .step{display:flex;gap:14px;align-items:center;padding:14px 0;color:#b5b5b5}
+  .step .cir{width:38px;height:38px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1rem}
+  .step.done{color:#2b2b2b;font-weight:700}
+  .step.done .cir{background:#d63232;color:#fff}
+  .step.reject{color:#d63232;font-weight:700}
+  .step.reject .cir{background:#555;color:#fff}
+  .reject-box{background:#fdeaea;border:2px solid #d63232;border-radius:16px;padding:20px;margin:20px auto;max-width:420px;text-align:center}
+  .reject-box h3{color:#d63232;margin-bottom:8px}
+  .reject-box p{color:#6b6b6b;line-height:1.9;font-size:.95rem}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <a href="index.html">🍔</a>
+  <h1>مطعم خالو</h1>
+  <span class="net" id="net">تجريبي</span>
+  <button id="installBtn" style="display:none;background:#fff;color:#d63232;border:none;padding:7px 14px;border-radius:20px;font-weight:bold;font-size:.8rem;cursor:pointer;font-family:inherit">⬇ حمّل التطبيق</button>
+</div>
+
+<!-- عرض القائمة -->
+<div id="view-menu">
+  <div class="cats" id="cats"></div>
+  <div class="list" id="list"></div>
+</div>
+
+<!-- عرض تفاصيل الصنف -->
+<div id="view-detail" class="detail" style="display:none"></div>
+
+<!-- عرض السلة والدفع -->
+<div id="view-cart" class="cart-page" style="display:none"></div>
+
+<!-- نجاح الطلب -->
+<div id="view-success" class="success" style="display:none"></div>
+
+<!-- تتبع الطلب -->
+<div id="view-track" style="display:none"></div>
+
+<div class="cartbar" id="cartbar" onclick="showCart()">
+  <span id="cartCount">🛒 السلة (0)</span>
+  <span class="total" id="cartTotal">0 د.ع</span>
+</div>
+
+<script src="app.js"></script>
+<script>
+/* تسجيل التطبيق (PWA) */
+if ("serviceWorker" in navigator)
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+let deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById("installBtn").style.display = "block";
+});
+document.getElementById("installBtn").onclick = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById("installBtn").style.display = "none";
+};
+
+let cart = JSON.parse(sessionStorage.getItem("khalo_cart")||"[]");
+
+let currentCat = "all";
+let detailItem = null;
+
+document.getElementById("net").textContent = online ? "🟢 مباشر" : "…";
+document.getElementById("net").className = "net";
+window.addEventListener("khalo_db_ready", () => {
+  const n = document.getElementById("net");
+  n.textContent = "🟢 مباشر"; n.className = "net on";
+});
+
+/* ============ القائمة (تُجلب مباشرة من Firebase) ============ */
+const iconHTML = (m, big) => m.img ? `<img src="${m.img}" alt="${m.name}">` : (m.icon || "🍽️");
+
+function renderCats(){
+  /* أظهر فقط التصنيفات التي تحتوي أصنافاً + "الكل" */
+  const cats = CATS.filter(c => c.id==="all" || MENU.some(m=>m.cat===c.id));
+  document.getElementById("cats").innerHTML = cats.map(c =>
+    `<div class="cat ${c.id===currentCat?'active':''}" onclick="setCat('${c.id}')">${c.name}</div>`).join("");
+}
+function setCat(id){ currentCat=id; renderCats(); renderList(); }
+
+function renderList(){
+  const items = MENU.filter(m => currentCat==="all" || m.cat===currentCat);
+  if (!items.length){
+    document.getElementById("list").innerHTML =
+      `<div class="empty"><div class="ic">🍽️</div><h3>القائمة فارغة حالياً</h3><p>تابعنا قريباً لأشهى الأطباق! 🧡</p></div>`;
+    return;
+  }
+  document.getElementById("list").innerHTML = items.map(m => `
+    <div class="item" onclick="openItem('${m.id}')">
+      <div class="icon">${iconHTML(m)}</div>
+      <div class="info">
+        <div class="name">${m.name} ${m.hot?'<span class="hot">الأكثر طلباً 🔥</span>':''}</div>
+        <div class="desc">${m.desc||""}</div>
+      </div>
+      <div class="price">${fmt(m.price)}</div>
+    </div>`).join("");
+}
+
+/* ============ تفاصيل الصنف ============ */
+function openItem(id){
+  detailItem = MENU.find(m=>m.id===id);
+  const m = detailItem;
+  let html = `<div class="big-icon">${iconHTML(m, true)}</div>
+    <h2>${m.name}</h2>
+    <p class="p-desc">${m.desc}</p>`;
+
+  if (m.options?.includes("fries")) html += optGroup("هل تريد جبنة معها؟ 🧀", "fries", FRIES_OPTS.map((f,i)=>optRow(f.n,f.p,"fries",i)));
+  if (m.options?.includes("size"))  html += optGroup("اختر الحجم", "size", SIZES.map((s,i)=>optRow(s.n,s.p,"size",i)));
+  if (m.options?.includes("drink")) html += optGroup("أضف مشروباً 🥤", "drink", DRINKS.map((d,i)=>optRow(d.n,d.p,"drink",i)));
+
+  html += `
+    <div class="opt-group"><h4>📝 ملاحظات</h4>
+      <textarea id="note" placeholder="مثال: بدون بصل، صوص إضافي…"></textarea></div>
+    <div class="qty">
+      <button onclick="chQty(-1)">−</button><span id="qty">1</span><button onclick="chQty(1)">+</button>
+    </div>
+    <button class="submit" onclick="addToCart()">أضف للسلة • <span id="btnPrice">${fmt(m.price)}</span></button>
+    <button class="submit" style="background:#eee;color:#2b2b2b" onclick="showMenu()">← رجوع للقائمة</button>`;
+
+  const v = document.getElementById("view-detail");
+  v.innerHTML = html; v.style.display = "block";
+  hideAll("view-detail");
+  window.scrollTo(0,0);
+}
+function optGroup(title,key,rows){ return `<div class="opt-group"><h4>${title}</h4><div data-group="${key}">${rows}</div></div>`; }
+function optRow(name,price,group,idx){
+  return `<div class="opt ${idx===0?'sel':''}" data-g="${group}" data-n="${name}" data-p="${price}" onclick="selOpt(this)">
+    <b>${name}</b>${price>0?`<span class="add">+ ${fmt(price)}</span>`:''}</div>`;
+}
+function selOpt(el){
+  el.parentElement.querySelectorAll(".opt").forEach(o=>o.classList.remove("sel"));
+  el.classList.add("sel");
+  updateBtnPrice();
+}
+function chQty(d){
+  const q = document.getElementById("qty");
+  q.textContent = Math.max(1, +q.textContent + d);
+  updateBtnPrice();
+}
+function calcUnit(){
+  let unit = detailItem.price;
+  document.querySelectorAll(".opt.sel").forEach(o => unit += +o.dataset.p);
+  return unit;
+}
+function updateBtnPrice(){
+  const q = +document.getElementById("qty").textContent;
+  document.getElementById("btnPrice").textContent = fmt(calcUnit()*q);
+}
+function addToCart(){
+  const opts = [];
+  document.querySelectorAll(".opt.sel").forEach(o => {
+    if (o.dataset.n !== "بدون" && !o.dataset.n.startsWith("بدون") && o.dataset.n !== "صغير")
+      opts.push(o.dataset.n);
+  });
+  cart.push({
+    id: detailItem.id, name: detailItem.name, icon: detailItem.icon,
+    qty: +document.getElementById("qty").textContent,
+    unit: calcUnit(), opts,
+    note: document.getElementById("note").value.trim()
+  });
+  saveCart(); showMenu();
+}
+
+/* ============ السلة ============ */
+function saveCart(){
+  sessionStorage.setItem("khalo_cart", JSON.stringify(cart));
+  const count = cart.reduce((s,i)=>s+i.qty,0);
+  const total = cart.reduce((s,i)=>s+i.unit*i.qty,0);
+  document.getElementById("cartCount").textContent = `🛒 السلة (${count})`;
+  document.getElementById("cartTotal").textContent = fmt(total);
+}
+function removeItem(i){ cart.splice(i,1); saveCart(); showCart(); }
+
+function showCart(){
+  const v = document.getElementById("view-cart");
+  if (!cart.length){
+    v.innerHTML = `<div class="empty"><div class="ic">🛒</div><h3>سلتك فارغة!</h3><p>أضف بعض الأطباق الشهية أولاً</p></div>`;
+  } else {
+    const itemsHtml = cart.map((it,i)=>`
+      <div class="cart-item">
+        <div><div class="cn">${it.icon} ${it.name} × ${it.qty}</div>
+        <div class="co">${it.opts.join(" • ")}${it.note?"<br>📝 "+it.note:""}</div></div>
+        <div><div class="cp">${fmt(it.unit*it.qty)}</div><button class="del" onclick="removeItem(${i})">🗑️</button></div>
+      </div>`).join("");
+
+    const sub = cart.reduce((s,i)=>s+i.unit*i.qty,0);
+    v.innerHTML = `<h2>🧾 طلبك</h2>${itemsHtml}
+    <div class="form">
+      <div class="field"><label>الاسم الكامل *</label><input id="f-name" placeholder="اكتب اسمك"></div>
+      <div class="field"><label>رقم الهاتف *</label><input id="f-phone" type="tel" placeholder="07XXXXXXXXX"></div>
+      <div class="field"><label>نوع الطلب</label>
+        <select id="f-type" onchange="toggleAddr()">
+          <option value="استلام من المطعم">🥡 استلام من المطعم</option>
+          <option value="توصيل للبيت">🛵 توصيل للبيت (+${fmt(RESTAURANT.deliveryFee)})</option>
+        </select></div>
+      <div class="field" id="addrField" style="display:none"><label>العنوان بالتفصيل *</label><input id="f-addr" placeholder="المنطقة، الناحية، أقرب نقطة دالة"></div>
+      <div class="field"><label>طريقة الدفع</label>
+        <div class="pay-opts">
+          <label class="sel"><input type="radio" name="pay" value="كاش" checked>💵 كاش</label>
+          <label><input type="radio" name="pay" value="عند الاستلام">تأكيد هاتفي</label>
+        </div></div>
+      <div class="field"><label>ملاحظات عامة</label><input id="f-note" placeholder="أي ملاحظة إضافية"></div>
+    </div>
+    <div class="totals">
+      <div class="row"><span>المجموع الفرعي</span><span id="t-sub">${fmt(sub)}</span></div>
+      <div class="row" id="t-del-row" style="display:none"><span>التوصيل</span><span>${fmt(RESTAURANT.deliveryFee)}</span></div>
+      <div class="row grand"><span>المجموع الكلي</span><span id="t-grand">${fmt(sub)}</span></div>
+    </div>
+    <button class="submit" onclick="placeOrder()">تأكيد الطلب ✅</button>`;
+
+    v.querySelectorAll(".pay-opts label").forEach(l => l.onclick = () => {
+      v.querySelectorAll(".pay-opts label").forEach(x=>x.classList.remove("sel"));
+      l.classList.add("sel");
+      l.querySelector("input").checked = true;
+    });
+  }
+  hideAll("view-cart");
+  window.scrollTo(0,0);
+}
+function toggleAddr(){
+  const d = document.getElementById("f-type").value === "توصيل للبيت";
+  document.getElementById("addrField").style.display = d ? "block" : "none";
+  document.getElementById("t-del-row").style.display = d ? "flex" : "none";
+  const sub = cart.reduce((s,i)=>s+i.unit*i.qty,0);
+  document.getElementById("t-grand").textContent = fmt(sub + (d ? RESTAURANT.deliveryFee : 0));
+}
+
+/* ============ إرسال الطلب ============ */
+async function placeOrder(){
+  const name = document.getElementById("f-name").value.trim();
+  const phone = document.getElementById("f-phone").value.trim();
+  const type = document.getElementById("f-type").value;
+  const addr = document.getElementById("f-addr")?.value.trim();
+  if (!name || !phone) { alert("⚠️ يرجى إدخال الاسم ورقم الهاتف"); return; }
+  if (type === "توصيل للبيت" && !addr) { alert("⚠️ يرجى إدخال العنوان للتوصيل"); return; }
+
+  const isDelivery = type === "توصيل للبيت";
+  const sub = cart.reduce((s,i)=>s+i.unit*i.qty,0);
+  const order = {
+    customer: { name, phone, address: addr||"" },
+    type, pay: document.querySelector('input[name="pay"]:checked').value,
+    note: document.getElementById("f-note").value.trim(),
+    items: cart,
+    subtotal: sub,
+    delivery: isDelivery ? RESTAURANT.deliveryFee : 0,
+    total: sub + (isDelivery ? RESTAURANT.deliveryFee : 0),
+  };
+  const btn = document.querySelector(".submit");
+  btn.textContent = "⏳ جارٍ الإرسال..."; btn.disabled = true;
+  const saved = await sendOrder(order);
+  localStorage.setItem("khalo_last_order", saved.id);
+  cart = []; saveCart();
+  showSuccess(saved.id);
+}
+
+function showSuccess(id){
+  const v = document.getElementById("view-success");
+  v.innerHTML = `<div class="ok">🎉</div>
+    <h2>تم استلام طلبك!</h2>
+    <p style="color:#8a8a8a;line-height:2">شكراً لك! بدأنا بتجهيز طلبك الآن.<br>احتفظ برقم الطلب لتتبعه:</p>
+    <div class="oid">${id}</div>
+    <br><a class="track-btn" onclick="showTrack('${id}')">📍 تتبّع الطلب</a>
+    <br><br><a class="track-btn" style="background:#eee;color:#2b2b2b" onclick="showMenu()">العودة للقائمة</a>`;
+  hideAll("view-success");
+  window.scrollTo(0,0);
+}
+
+/* ============ تتبع الطلب ============ */
+const STAGES = ["جديد","قيد التحضير","جاهز","تم التسليم/التوصيل"];
+function showTrack(id){
+  const v = document.getElementById("view-track");
+  v.innerHTML = `<div style="padding:25px 8%">
+    <h2 style="text-align:center">📍 تتبّع طلبك</h2>
+    <p style="text-align:center;color:#d63232;font-weight:800;margin:10px 0">${id}</p></div>
+    <div class="steps" id="steps"></div>
+    <div style="text-align:center"><a class="track-btn" style="display:inline-block;background:#eee;color:#2b2b2b;padding:13px 34px;border-radius:30px;text-decoration:none;font-weight:bold" onclick="showMenu()">العودة للقائمة</a></div>`;
+  hideAll("view-track");
+  onOrders(orders => {
+    const o = orders.find(x=>x.id===id);
+    if (!o) return;
+    const steps = document.getElementById("steps");
+    if (o.status === "مرفوض"){
+      steps.innerHTML = `<div class="reject-box">
+        <div style="font-size:3rem">🚫</div>
+        <h3>عذراً… تم رفض طلبك</h3>
+        <p><b>السبب:</b> ${o.rejectReason || "لم يُذكر سبب"}</p>
+        <p style="margin-top:10px">نعتذر منك! للاستفسار أو إعادة الطلب اتصل بنا:<br>
+        <a href="tel:${RESTAURANT.phone}" style="color:#d63232;font-weight:800">${RESTAURANT.phone}</a></p>
+      </div>`;
+      return;
+    }
+    const idx = STAGES.indexOf(o.status);
+    steps.innerHTML = STAGES.map((s,i)=>
+      `<div class="step ${i<=idx?'done':''}"><div class="cir">${i<=idx?'✓':i+1}</div>${s}</div>`).join("");
+  });
+}
+
+/* ============ التنقل ============ */
+function hideAll(except){
+  ["view-menu","view-detail","view-cart","view-success","view-track"].forEach(v =>
+    document.getElementById(v).style.display = v===except ? "block" : "none");
+}
+function showMenu(){ hideAll("view-menu"); window.scrollTo(0,0); }
+
+saveCart(); showMenu(); renderCats(); renderList();
+
+/* ✅ تحميل القائمة مباشرةً من Firebase — وأي تعديل من الأدمن يظهر فوراً عند الزبون */
+onMenu(menu => {
+  MENU = menu;
+  renderCats(); renderList();
+});
+
+/* فتح صنف مباشرة عبر رابط ?item=xxx (بعد تحميل القائمة) */
+const q = new URLSearchParams(location.search);
+if (q.get("item")){
+  const tryOpen = () => { if (MENU.find(m=>m.id===q.get("item"))) openItem(q.get("item")); };
+  onMenu(tryOpen); tryOpen();
+}
+</script>
+</body>
+</html>
